@@ -22,15 +22,13 @@ pub struct CloudEvent {
   data : Json
   /// Base64 encoded event payload. Must adhere to RFC4648.
   data_base64 : String?
-
-  // TODO: 仕様にないデータの追加を許可する方法を検討する
 } derive (
   FromJson(fields(type_(rename="type"))),
   ToJson(fields(type_(rename="type"))),
 )
 
 ///|
-struct CloudEventBase {
+pub struct ExtendedCloudEvent[E] {
   /// Identifies the event.
   id : String
   /// Identifies the context in which an event happened.
@@ -51,12 +49,105 @@ struct CloudEventBase {
   data : Json
   /// Base64 encoded event payload. Must adhere to RFC4648.
   data_base64 : String?
+  extended_field : E
+}
 
-  // TODO: 仕様にないデータの追加を許可する方法を検討する
-} derive (
-  FromJson(fields(type_(rename="type"))),
-  ToJson(fields(type_(rename="type"))),
-)
+///|
+pub impl[E : ToJson] ToJson for ExtendedCloudEvent[E] with to_json(self) -> Json {
+  let base = CloudEvent::{
+      id: self.id,
+      source: self.source,
+      specversion: self.specversion,
+      type_: self.type_,
+      datacontenttype: self.datacontenttype,
+      dataschema: self.dataschema,
+      subject: self.subject,
+      time: self.time,
+      data: self.data,
+      data_base64: self.data_base64,
+    }
+    .to_json()
+    .as_object()
+    .unwrap()
+  let extended = self.extended_field.to_json().as_object().unwrap()
+  Json::object(base.merge(extended))
+}
+
+///|
+pub impl[E : @json.FromJson] @json.FromJson for ExtendedCloudEvent[E] with from_json(
+  json : Json,
+  json_path : @json.JsonPath,
+) -> ExtendedCloudEvent[E] raise @json.JsonDecodeError {
+  let base = CloudEvent::from_json(json, json_path)
+  let extended_field = E::from_json(json, json_path)
+  ExtendedCloudEvent::{
+    id: base.id,
+    source: base.source,
+    specversion: base.specversion,
+    type_: base.type_,
+    datacontenttype: base.datacontenttype,
+    dataschema: base.dataschema,
+    subject: base.subject,
+    time: base.time,
+    data: base.data,
+    data_base64: base.data_base64,
+    extended_field,
+  }
+}
+
+priv struct AuditLogExtension {
+  methodName : String
+  resourceName : String
+  serviceName : String
+} derive (FromJson, ToJson)
+
+test {
+    let json_string =
+    #|{
+    #| "data":{},
+    #| "datacontenttype": "application/json; charset=utf-8",
+    #| "id": "MESSAGE_ID",
+    #| "source": "//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+    #| "specversion": "1.0",
+    #| "type": "google.cloud.audit.log.v1.written",
+    #| "time": "EVENT_GENERATION_TIME",
+    #| "dataschema": "https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+    #| "methodName": "jobservice.jobcompleted",
+    #| "resourceName": "projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+    #| "serviceName": "bigquery.googleapis.com",
+    #| "subject": "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1"
+    #| }
+  let cloud_event : ExtendedCloudEvent[AuditLogExtension] = @json.from_json(@json.parse(json_string))
+  inspect(cloud_event.id, content="MESSAGE_ID")
+  inspect(
+    cloud_event.source,
+    content="//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+  )
+  inspect(cloud_event.specversion, content="1.0")
+  inspect(cloud_event.type_, content="google.cloud.audit.log.v1.written")
+  inspect(cloud_event.time.unwrap(), content="EVENT_GENERATION_TIME")
+  inspect(
+    cloud_event.dataschema.unwrap(),
+    content="https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+  )
+  inspect(
+    cloud_event.subject.unwrap(),
+    content="bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+  )
+  inspect(
+    cloud_event.extended_field.methodName,
+    content="jobservice.jobcompleted",
+  )
+  inspect(
+    cloud_event.extended_field.resourceName,
+    content="projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+  )
+  inspect(
+    cloud_event.extended_field.serviceName,
+    content="bigquery.googleapis.com",
+  )
+  inspect(cloud_event.to_json().stringify(indent=1), content=json_string)
+}
 
 ///|
 test {
