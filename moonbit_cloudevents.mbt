@@ -1,7 +1,7 @@
 ///|
 /// CloudEvents Specification JSON Schema
 /// Ref: https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/formats/cloudevents.json
-pub struct CloudEvent {
+pub struct CloudEvent[Data] {
   /// Identifies the event.
   id : String
   /// Identifies the context in which an event happened.
@@ -19,7 +19,7 @@ pub struct CloudEvent {
   /// Timestamp of when the occurrence happened. Must adhere to RFC 3339.
   time : String?
   /// The event payload.
-  data : Json
+  data : Data
   /// Base64 encoded event payload. Must adhere to RFC4648.
   data_base64 : String?
 } derive (
@@ -28,7 +28,7 @@ pub struct CloudEvent {
 )
 
 ///|
-pub struct ExtendedCloudEvent[E] {
+pub struct ExtendedCloudEvent[Data, ExtendedFields] {
   /// Identifies the event.
   id : String
   /// Identifies the context in which an event happened.
@@ -46,14 +46,16 @@ pub struct ExtendedCloudEvent[E] {
   /// Timestamp of when the occurrence happened. Must adhere to RFC 3339.
   time : String?
   /// The event payload.
-  data : Json
+  data : Data
   /// Base64 encoded event payload. Must adhere to RFC4648.
   data_base64 : String?
-  extended_field : E
+  extended_field : ExtendedFields
 }
 
 ///|
-pub impl[E : ToJson] ToJson for ExtendedCloudEvent[E] with to_json(self) -> Json {
+pub impl[Data : ToJson, E : ToJson] ToJson for ExtendedCloudEvent[Data, E] with to_json(
+  self,
+) -> Json {
   let base = CloudEvent::{
       id: self.id,
       source: self.source,
@@ -74,10 +76,13 @@ pub impl[E : ToJson] ToJson for ExtendedCloudEvent[E] with to_json(self) -> Json
 }
 
 ///|
-pub impl[E : @json.FromJson] @json.FromJson for ExtendedCloudEvent[E] with from_json(
-  json : Json,
-  json_path : @json.JsonPath,
-) -> ExtendedCloudEvent[E] raise @json.JsonDecodeError {
+pub impl[Data : @json.FromJson, E : @json.FromJson] @json.FromJson for ExtendedCloudEvent[
+  Data,
+  E,
+] with from_json(json : Json, json_path : @json.JsonPath) -> ExtendedCloudEvent[
+  Data,
+  E,
+] raise @json.JsonDecodeError {
   let base = CloudEvent::from_json(json, json_path)
   let extended_field = E::from_json(json, json_path)
   ExtendedCloudEvent::{
@@ -95,14 +100,16 @@ pub impl[E : @json.FromJson] @json.FromJson for ExtendedCloudEvent[E] with from_
   }
 }
 
+///|
 priv struct AuditLogExtension {
   methodName : String
   resourceName : String
   serviceName : String
-} derive (FromJson, ToJson)
+} derive(FromJson, ToJson)
 
-test {
-    let json_string =
+///|
+test "ExtendedCloudEvent fromJson" {
+  let json_string =
     #|{
     #| "data":{},
     #| "datacontenttype": "application/json; charset=utf-8",
@@ -117,7 +124,9 @@ test {
     #| "serviceName": "bigquery.googleapis.com",
     #| "subject": "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1"
     #| }
-  let cloud_event : ExtendedCloudEvent[AuditLogExtension] = @json.from_json(@json.parse(json_string))
+  let cloud_event : ExtendedCloudEvent[Json, AuditLogExtension] = @json.from_json(
+    @json.parse(json_string),
+  )
   inspect(cloud_event.id, content="MESSAGE_ID")
   inspect(
     cloud_event.source,
@@ -146,7 +155,50 @@ test {
     cloud_event.extended_field.serviceName,
     content="bigquery.googleapis.com",
   )
-  inspect(cloud_event.to_json().stringify(indent=1), content=json_string)
+}
+
+///|
+test "ExtendedCloudEvent toJson" {
+  let cloud_event = ExtendedCloudEvent::{
+    id: "MESSAGE_ID",
+    source: "//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+    specversion: "1.0",
+    type_: "google.cloud.audit.log.v1.written",
+    datacontenttype: Some("application/json; charset=utf-8"),
+    dataschema: Some(
+      "https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+    ),
+    subject: Some(
+      "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+    ),
+    time: Some("EVENT_GENERATION_TIME"),
+    data: Json::null(),
+    data_base64: None,
+    extended_field: AuditLogExtension::{
+      methodName: "jobservice.jobcompleted",
+      resourceName: "projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+      serviceName: "bigquery.googleapis.com",
+    },
+  }
+  inspect(
+    cloud_event.to_json().stringify(indent=1),
+    content=(
+      #|{
+      #| "id": "MESSAGE_ID",
+      #| "source": "//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+      #| "specversion": "1.0",
+      #| "type": "google.cloud.audit.log.v1.written",
+      #| "datacontenttype": "application/json; charset=utf-8",
+      #| "dataschema": "https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+      #| "subject": "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+      #| "time": "EVENT_GENERATION_TIME",
+      #| "data": null,
+      #| "methodName": "jobservice.jobcompleted",
+      #| "resourceName": "projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+      #| "serviceName": "bigquery.googleapis.com"
+      #|}
+    ),
+  )
 }
 
 ///|
@@ -166,7 +218,7 @@ test {
     #| "serviceName": "bigquery.googleapis.com",
     #| "subject": "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1"
     #| }
-  let cloud_event : CloudEvent = @json.from_json(@json.parse(json_string))
+  let cloud_event : CloudEvent[Json] = @json.from_json(@json.parse(json_string))
   inspect(cloud_event.id, content="MESSAGE_ID")
   inspect(
     cloud_event.source,
