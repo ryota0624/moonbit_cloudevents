@@ -53,25 +53,39 @@ pub struct ExtendedCloudEvent[Data, ExtendedFields] {
 }
 
 ///|
-pub impl[Data : ToJson, E : ToJson] ToJson for ExtendedCloudEvent[Data, E] with to_json(
+fn[Data, ExtendedFields] ExtendedCloudEvent::to_cloud_event(
+  self : ExtendedCloudEvent[Data, ExtendedFields],
+) -> CloudEvent[Data] {
+  CloudEvent::{
+    id: self.id,
+    source: self.source,
+    specversion: self.specversion,
+    type_: self.type_,
+    datacontenttype: self.datacontenttype,
+    dataschema: self.dataschema,
+    subject: self.subject,
+    time: self.time,
+    data: self.data,
+    data_base64: self.data_base64,
+  }
+}
+
+///|
+pub trait ToJsonObject {
+  to_json_object(Self) -> Map[String, Json]
+}
+
+///|
+pub impl ToJson for &ToJsonObject with to_json(self) -> Json {
+  Json::object(self.to_json_object())
+}
+
+///|
+pub impl[Data : ToJson, E : ToJsonObject] ToJson for ExtendedCloudEvent[Data, E] with to_json(
   self,
 ) -> Json {
-  let base = CloudEvent::{
-      id: self.id,
-      source: self.source,
-      specversion: self.specversion,
-      type_: self.type_,
-      datacontenttype: self.datacontenttype,
-      dataschema: self.dataschema,
-      subject: self.subject,
-      time: self.time,
-      data: self.data,
-      data_base64: self.data_base64,
-    }
-    .to_json()
-    .as_object()
-    .unwrap()
-  let extended = self.extended_field.to_json().as_object().unwrap()
+  let base = self.to_cloud_event().to_json().as_object().unwrap()
+  let extended = self.extended_field.to_json_object()
   Json::object(base.merge(extended))
 }
 
@@ -105,7 +119,19 @@ priv struct AuditLogExtension {
   methodName : String
   resourceName : String
   serviceName : String
-} derive(FromJson, ToJson)
+} derive(FromJson)
+
+///|
+impl ToJsonObject for AuditLogExtension with to_json_object(self) -> Map[
+  String,
+  Json,
+] {
+  {
+    "methodName": Json::string(self.methodName),
+    "resourceName": Json::string(self.resourceName),
+    "serviceName": Json::string(self.serviceName),
+  }
+}
 
 ///|
 test "ExtendedCloudEvent fromJson" {
