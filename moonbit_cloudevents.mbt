@@ -1,20 +1,96 @@
 ///|
-pub fn fib(n : Int) -> Int64 {
-  loop (n, 0L, 1L) {
-    (0, _, b) => b
-    (i, a, b) => continue (i - 1, b, a + b)
-  }
-}
+/// CloudEvents Specification JSON Schema
+/// Ref: https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/formats/cloudevents.json
+pub struct CloudEvent {
+  /// Identifies the event.
+  id : String
+  /// Identifies the context in which an event happened.
+  source : String
+  /// The version of the CloudEvents specification which the event uses.
+  specversion : String
+  /// Describes the type of event related to the originating occurrence.
+  type_ : String
+  /// Content type of the data value. Must adhere to RFC 2046 format.
+  datacontenttype : String?
+  /// Identifies the schema that data adheres to.
+  dataschema : String?
+  /// Describes the subject of the event in the context of the event producer (identified by source).
+  subject : String?
+  /// Timestamp of when the occurrence happened. Must adhere to RFC 3339.
+  time : String?
+  /// The event payload.
+  data : Json
+  /// Base64 encoded event payload. Must adhere to RFC4648.
+  data_base64 : String?
+
+  // TODO: 仕様にないデータの追加を許可する方法を検討する
+} derive (
+  FromJson(fields(type_(rename="type"))),
+  ToJson(fields(type_(rename="type"))),
+)
 
 ///|
-/// data is a labelled argument without default value having type Array[Int]
-/// start is an optional labelled argument with default value 0 having type Int
-/// length is an optional labelled argument without default value having type Option[Int]
-pub fn sum(data~ : Array[Int], start? : Int = 0, length? : Int) -> Int {
-  let end = if length is Some(length) { start + length } else { data.length() }
-  for i = start, sum = 0; i < end; i = i + 1, sum = sum + data[i] {
+struct CloudEventBase {
+  /// Identifies the event.
+  id : String
+  /// Identifies the context in which an event happened.
+  source : String
+  /// The version of the CloudEvents specification which the event uses.
+  specversion : String
+  /// Describes the type of event related to the originating occurrence.
+  type_ : String
+  /// Content type of the data value. Must adhere to RFC 2046 format.
+  datacontenttype : String?
+  /// Identifies the schema that data adheres to.
+  dataschema : String?
+  /// Describes the subject of the event in the context of the event producer (identified by source).
+  subject : String?
+  /// Timestamp of when the occurrence happened. Must adhere to RFC 3339.
+  time : String?
+  /// The event payload.
+  data : Json
+  /// Base64 encoded event payload. Must adhere to RFC4648.
+  data_base64 : String?
 
-  } else {
-    sum
-  }
+  // TODO: 仕様にないデータの追加を許可する方法を検討する
+} derive (
+  FromJson(fields(type_(rename="type"))),
+  ToJson(fields(type_(rename="type"))),
+)
+
+///|
+test {
+  let json_string =
+    #|{
+    #| "data":{},
+    #| "datacontenttype": "application/json; charset=utf-8",
+    #| "id": "MESSAGE_ID",
+    #| "source": "//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+    #| "specversion": "1.0",
+    #| "type": "google.cloud.audit.log.v1.written",
+    #| "time": "EVENT_GENERATION_TIME",
+    #| "dataschema": "https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+    #| "methodName": "jobservice.jobcompleted",
+    #| "resourceName": "projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+    #| "serviceName": "bigquery.googleapis.com",
+    #| "subject": "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1"
+    #| }
+  let cloud_event : CloudEvent = @json.from_json(@json.parse(json_string))
+  inspect(cloud_event.id, content="MESSAGE_ID")
+  inspect(
+    cloud_event.source,
+    content="//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+  )
+  inspect(cloud_event.specversion, content="1.0")
+  inspect(cloud_event.type_, content="google.cloud.audit.log.v1.written")
+  inspect(cloud_event.time.unwrap(), content="EVENT_GENERATION_TIME")
+  inspect(
+    cloud_event.dataschema.unwrap(),
+    content="https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+  )
+  inspect(
+    cloud_event.subject.unwrap(),
+    content="bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+  )
+  inspect(cloud_event.to_json().stringify(indent=1), content=json_string)
 }
