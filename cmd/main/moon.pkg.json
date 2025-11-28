@@ -2,7 +2,7 @@
   "is-main": true,
   "import": [
     {
-      "path": "username/moonbit_cloudevents",
+      "path": "ryota0624/moonbit_cloudevents",
       "alias": "lib"
     }
   ]

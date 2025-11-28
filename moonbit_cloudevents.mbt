@@ -53,7 +53,37 @@ pub struct ExtendedCloudEvent[Data, ExtendedFields] {
 }
 
 ///|
-fn[Data, ExtendedFields] ExtendedCloudEvent::to_cloud_event(
+/// impl constuctor of ExtendedCloudEvent
+pub fn[Data, ExtendedFields] ExtendedCloudEvent::new(
+  id~ : String,
+  source~ : String,
+  specversion~ : String,
+  type_~ : String,
+  datacontenttype? : String? = None,
+  dataschema? : String? = None,
+  subject? : String? = None,
+  time? : String? = None,
+  data~ : Data,
+  data_base64? : String? = None,
+  extended_field~ : ExtendedFields,
+) -> ExtendedCloudEvent[Data, ExtendedFields] {
+  ExtendedCloudEvent::{
+    id,
+    source,
+    specversion,
+    type_,
+    datacontenttype,
+    dataschema,
+    subject,
+    time,
+    data,
+    data_base64,
+    extended_field,
+  }
+}
+
+///|
+pub fn[Data, ExtendedFields] ExtendedCloudEvent::to_cloud_event(
   self : ExtendedCloudEvent[Data, ExtendedFields],
 ) -> CloudEvent[Data] {
   CloudEvent::{
