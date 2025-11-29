@@ -53,6 +53,54 @@ pub struct ExtendedCloudEvent[Data, ExtendedFields] {
 }
 
 ///|
+pub struct UnsafeToJsonEnabledExtendedCloudEvent[Data, E](
+  ExtendedCloudEvent[Data, E]
+)
+
+///|
+pub impl[Data : ToJson, E : ToJson] ToJson for UnsafeToJsonEnabledExtendedCloudEvent[
+  Data,
+  E,
+] with to_json(self) -> Json {
+  let base = self.0.to_cloud_event().to_json().as_object().unwrap()
+  let extended = self.extended_field.to_json().as_object().unwrap()
+  Json::object(base.merge(extended))
+}
+
+///|
+pub fn[Data : ToJson, E : ToJson] ExtendedCloudEvent::unsafe_to_json_enabled(
+  self : ExtendedCloudEvent[Data, E],
+) -> UnsafeToJsonEnabledExtendedCloudEvent[Data, E] {
+  let _ = self.data as &ToJson
+  let _ = self.extended_field as &ToJson
+  UnsafeToJsonEnabledExtendedCloudEvent(self)
+}
+
+///|
+pub struct SafeToJsonEnabledExtendedCloudEvent[Data, E](
+  ExtendedCloudEvent[Data, E]
+)
+
+///|
+pub impl[Data : ToJson, E : ToJsonObject] ToJson for SafeToJsonEnabledExtendedCloudEvent[
+  Data,
+  E,
+] with to_json(self) -> Json {
+  let base = self.0.to_cloud_event().to_json().as_object().unwrap()
+  let extended = self.extended_field.to_json_object()
+  Json::object(base.merge(extended))
+}
+
+///|
+pub fn[Data : ToJson, E : ToJsonObject] ExtendedCloudEvent::safe_to_json_enabled(
+  self : ExtendedCloudEvent[Data, E],
+) -> SafeToJsonEnabledExtendedCloudEvent[Data, E] {
+  let _ = self.data as &ToJson
+  let _ = self.extended_field as &ToJsonObject
+  SafeToJsonEnabledExtendedCloudEvent(self)
+}
+
+///|
 /// impl constuctor of ExtendedCloudEvent
 pub fn[Data, ExtendedFields] ExtendedCloudEvent::new(
   id~ : String,
@@ -106,20 +154,6 @@ pub trait ToJsonObject {
 }
 
 ///|
-pub impl ToJson for &ToJsonObject with to_json(self) -> Json {
-  Json::object(self.to_json_object())
-}
-
-///|
-pub impl[Data : ToJson, E : ToJsonObject] ToJson for ExtendedCloudEvent[Data, E] with to_json(
-  self,
-) -> Json {
-  let base = self.to_cloud_event().to_json().as_object().unwrap()
-  let extended = self.extended_field.to_json_object()
-  Json::object(base.merge(extended))
-}
-
-///|
 pub impl[Data : @json.FromJson, E : @json.FromJson] @json.FromJson for ExtendedCloudEvent[
   Data,
   E,
@@ -162,6 +196,13 @@ impl ToJsonObject for AuditLogExtension with to_json_object(self) -> Map[
     "serviceName": Json::string(self.serviceName),
   }
 }
+
+///|
+priv struct ApplicationLogExtension {
+  methodName : String
+  resourceName : String
+  serviceName : String
+} derive(FromJson, ToJson)
 
 ///|
 test "ExtendedCloudEvent fromJson" {
@@ -214,7 +255,7 @@ test "ExtendedCloudEvent fromJson" {
 }
 
 ///|
-test "ExtendedCloudEvent toJson" {
+test "ExtendedCloudEvent toJson safe" {
   let cloud_event = ExtendedCloudEvent::{
     id: "MESSAGE_ID",
     source: "//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
@@ -237,7 +278,51 @@ test "ExtendedCloudEvent toJson" {
     },
   }
   inspect(
-    cloud_event.to_json().stringify(indent=1),
+    cloud_event.safe_to_json_enabled().to_json().stringify(indent=1),
+    content=(
+      #|{
+      #| "id": "MESSAGE_ID",
+      #| "source": "//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+      #| "specversion": "1.0",
+      #| "type": "google.cloud.audit.log.v1.written",
+      #| "datacontenttype": "application/json; charset=utf-8",
+      #| "dataschema": "https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+      #| "subject": "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+      #| "time": "EVENT_GENERATION_TIME",
+      #| "data": null,
+      #| "methodName": "jobservice.jobcompleted",
+      #| "resourceName": "projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+      #| "serviceName": "bigquery.googleapis.com"
+      #|}
+    ),
+  )
+}
+
+///|
+test "ExtendedCloudEvent toJson unsafe" {
+  let cloud_event = ExtendedCloudEvent::{
+    id: "MESSAGE_ID",
+    source: "//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
+    specversion: "1.0",
+    type_: "google.cloud.audit.log.v1.written",
+    datacontenttype: Some("application/json; charset=utf-8"),
+    dataschema: Some(
+      "https://googleapis.github.io/google-cloudevents/jsonschema/google/events/cloud/audit/v1/LogEntryData.json",
+    ),
+    subject: Some(
+      "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+    ),
+    time: Some("EVENT_GENERATION_TIME"),
+    data: Json::null(),
+    data_base64: None,
+    extended_field: ApplicationLogExtension::{
+      methodName: "jobservice.jobcompleted",
+      resourceName: "projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1",
+      serviceName: "bigquery.googleapis.com",
+    },
+  }
+  inspect(
+    cloud_event.unsafe_to_json_enabled().to_json().stringify(indent=1),
     content=(
       #|{
       #| "id": "MESSAGE_ID",
