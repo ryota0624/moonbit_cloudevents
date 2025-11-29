@@ -1,7 +1,7 @@
 ///|
 /// CloudEvents Specification JSON Schema
 /// Ref: https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/formats/cloudevents.json
-pub struct CloudEvent[Data] {
+pub struct CloudEvents[Data] {
   /// Identifies the event.
   id : String
   /// Identifies the context in which an event happened.
@@ -25,11 +25,40 @@ pub struct CloudEvent[Data] {
 } derive (
   FromJson(fields(type_(rename="type"))),
   ToJson(fields(type_(rename="type"))),
+  Show,
+  Eq,
 )
 
 ///|
+pub fn[Data] CloudEvents::new(
+  id~ : String,
+  source~ : String,
+  specversion~ : String,
+  type_~ : String,
+  datacontenttype? : String? = None,
+  dataschema? : String? = None,
+  subject? : String? = None,
+  time? : String? = None,
+  data~ : Data,
+  data_base64? : String? = None,
+) -> CloudEvents[Data] {
+  CloudEvents::{
+    id,
+    source,
+    specversion,
+    type_,
+    datacontenttype,
+    dataschema,
+    subject,
+    time,
+    data,
+    data_base64,
+  }
+}
+
+///|
 /// CloudEvents Specification with Extension Fields
-pub struct ExtendedCloudEvent[Data, ExtendedFields] {
+pub struct ExtendedCloudEvents[Data, ExtendedFields] {
   /// Identifies the event.
   id : String
   /// Identifies the context in which an event happened.
@@ -59,11 +88,11 @@ pub struct ExtendedCloudEvent[Data, ExtendedFields] {
   /// otherwise, unsafe ToJson implementation will be used.
   /// 
   extended_field : ExtendedFields
-}
+} derive(Show, Eq)
 
 ///|
 priv struct UnsafeToJsonEnabledExtendedCloudEvent[Data, E](
-  ExtendedCloudEvent[Data, E]
+  ExtendedCloudEvents[Data, E]
 )
 
 ///|
@@ -83,8 +112,8 @@ impl[Data : ToJson, E : ToJson] ToJson for UnsafeToJsonEnabledExtendedCloudEvent
 }
 
 ///|
-pub fn[Data : ToJson, E : ToJson] ExtendedCloudEvent::unsafe_to_json_enabled(
-  self : ExtendedCloudEvent[Data, E],
+pub fn[Data : ToJson, E : ToJson] ExtendedCloudEvents::unsafe_to_json_enabled(
+  self : ExtendedCloudEvents[Data, E],
 ) -> &ToJson {
   let _ = self.data as &ToJson
   let _ = self.extended_field as &ToJson
@@ -101,7 +130,7 @@ pub fn[Data : ToJson, E : ToJson] ExtendedCloudEvent::unsafe_to_json_enabled(
 /// serialized as JSON objects that can be safely merged into the top-level
 /// CloudEvent JSON structure.
 priv struct SafeToJsonEnabledExtendedCloudEvent[Data, E](
-  ExtendedCloudEvent[Data, E]
+  ExtendedCloudEvents[Data, E]
 )
 
 ///|
@@ -115,8 +144,8 @@ impl[Data : ToJson, E : ToJsonObject] ToJson for SafeToJsonEnabledExtendedCloudE
 }
 
 ///|
-pub fn[Data : ToJson, E : ToJsonObject] ExtendedCloudEvent::safe_to_json_enabled(
-  self : ExtendedCloudEvent[Data, E],
+pub fn[Data : ToJson, E : ToJsonObject] ExtendedCloudEvents::safe_to_json_enabled(
+  self : ExtendedCloudEvents[Data, E],
 ) -> &ToJson {
   let _ = self.data as &ToJson
   let _ = self.extended_field as &ToJsonObject
@@ -125,7 +154,7 @@ pub fn[Data : ToJson, E : ToJsonObject] ExtendedCloudEvent::safe_to_json_enabled
 
 ///|
 /// impl constuctor of ExtendedCloudEvent
-pub fn[Data, ExtendedFields] ExtendedCloudEvent::new(
+pub fn[Data, ExtendedFields] ExtendedCloudEvents::new(
   id~ : String,
   source~ : String,
   specversion~ : String,
@@ -137,8 +166,8 @@ pub fn[Data, ExtendedFields] ExtendedCloudEvent::new(
   data~ : Data,
   data_base64? : String? = None,
   extended_field~ : ExtendedFields,
-) -> ExtendedCloudEvent[Data, ExtendedFields] {
-  ExtendedCloudEvent::{
+) -> ExtendedCloudEvents[Data, ExtendedFields] {
+  ExtendedCloudEvents::{
     id,
     source,
     specversion,
@@ -154,10 +183,10 @@ pub fn[Data, ExtendedFields] ExtendedCloudEvent::new(
 }
 
 ///|
-fn[Data, ExtendedFields] ExtendedCloudEvent::to_cloud_event(
-  self : ExtendedCloudEvent[Data, ExtendedFields],
-) -> CloudEvent[Data] {
-  CloudEvent::{
+fn[Data, ExtendedFields] ExtendedCloudEvents::to_cloud_event(
+  self : ExtendedCloudEvents[Data, ExtendedFields],
+) -> CloudEvents[Data] {
+  CloudEvents::{
     id: self.id,
     source: self.source,
     specversion: self.specversion,
@@ -178,16 +207,16 @@ pub(open) trait ToJsonObject {
 }
 
 ///|
-pub impl[Data : @json.FromJson, E : @json.FromJson] @json.FromJson for ExtendedCloudEvent[
+pub impl[Data : @json.FromJson, E : @json.FromJson] @json.FromJson for ExtendedCloudEvents[
   Data,
   E,
-] with from_json(json : Json, json_path : @json.JsonPath) -> ExtendedCloudEvent[
+] with from_json(json : Json, json_path : @json.JsonPath) -> ExtendedCloudEvents[
   Data,
   E,
 ] raise @json.JsonDecodeError {
-  let base = CloudEvent::from_json(json, json_path)
+  let base = CloudEvents::from_json(json, json_path)
   let extended_field = E::from_json(json, json_path)
-  ExtendedCloudEvent::{
+  ExtendedCloudEvents::{
     id: base.id,
     source: base.source,
     specversion: base.specversion,

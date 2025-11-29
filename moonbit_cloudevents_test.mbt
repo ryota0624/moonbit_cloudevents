@@ -40,7 +40,7 @@ test "ExtendedCloudEvent fromJson" {
     #| "serviceName": "bigquery.googleapis.com",
     #| "subject": "bigquery.googleapis.com/projects/my-project/jobs/bqjob_r3ac45813612fa2d6_0000017d591922c9_1"
     #| }
-  let cloud_event : ExtendedCloudEvent[Json, AuditLogExtension] = @json.from_json(
+  let cloud_event : ExtendedCloudEvents[Json, AuditLogExtension] = @json.from_json(
     @json.parse(json_string),
   )
   inspect(cloud_event.id, content="MESSAGE_ID")
@@ -75,7 +75,7 @@ test "ExtendedCloudEvent fromJson" {
 
 ///|
 test "ExtendedCloudEvent toJson safe" {
-  let cloud_event = @moonbit_cloudevents.ExtendedCloudEvent::new(
+  let cloud_event = @moonbit_cloudevents.ExtendedCloudEvents::new(
     id="MESSAGE_ID",
     source="//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
     specversion="1.0",
@@ -119,7 +119,7 @@ test "ExtendedCloudEvent toJson safe" {
 
 ///|
 test "ExtendedCloudEvent toJson unsafe" {
-  let cloud_event = @moonbit_cloudevents.ExtendedCloudEvent::new(
+  let cloud_event = @moonbit_cloudevents.ExtendedCloudEvents::new(
     id="MESSAGE_ID",
     source="//cloudaudit.googleapis.com/projects/PROJECT_ID/logs/data_access",
     specversion="1.0",
@@ -175,7 +175,7 @@ test {
     #| "time": "EVENT_GENERATION_TIME",
     #| "data": {}
     #|}
-  let cloud_event : CloudEvent[Json] = @json.from_json(@json.parse(json_string))
+  let cloud_event : CloudEvents[Json] = @json.from_json(@json.parse(json_string))
   inspect(cloud_event.id, content="MESSAGE_ID")
   inspect(
     cloud_event.source,
